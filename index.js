@@ -1,45 +1,49 @@
 const express = require("express");
-const app = express();
 const fs = require("fs");
 const path = require("path");
 
-const UPLOAD_DIR = path.join(__dirname, "uploads");
+const app = express();
+const PORT = process.env.PORT || 80;
 
-// Ensure uploads directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR);
-}
-
+// Parse all incoming POST data as raw binary
 app.use(express.raw({ type: "*/*", limit: "10mb" }));
 
-// Test endpoint
-app.get("/", (req, res) => {
-  res.send("Server is running. Use POST /upload_chunk to upload files.");
-});
+const UPLOAD_DIR = path.join(__dirname, "uploads");
 
-// Upload chunk endpoint
+// Create uploads folder if missing
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR);
+  console.log("Created uploads directory");
+}
+
 app.post("/upload_chunk", (req, res) => {
   const filename = req.query.filename;
   const part = req.query.part;
 
   if (!filename || !part) {
-    return res.status(400).send("Missing filename or part query parameter.");
+    return res.status(400).send("Missing filename or part query parameters");
   }
 
-  const filepath = path.join(UPLOAD_DIR, filename);
+  const filePath = path.join(UPLOAD_DIR, filename);
 
-  // Append chunk data to file
-  fs.appendFile(filepath, req.body, (err) => {
+  // Append chunk data to the file
+  fs.appendFile(filePath, req.body, (err) => {
     if (err) {
-      console.error("Failed to write chunk:", err);
-      return res.status(500).send("Failed to save chunk.");
+      console.error("Error saving chunk:", err);
+      return res.status(500).send("Failed to save chunk");
     }
-    console.log(`Saved chunk ${part} for file ${filename}`);
-    res.send(`Chunk ${part} saved.`);
+
+    console.log(`Saved chunk part ${part} for file ${filename} (${req.body.length} bytes)`);
+
+    res.send("Chunk saved");
   });
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+// Simple test route to check server status
+app.get("/", (req, res) => {
+  res.send("ESP32 Chunk Upload Server running");
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
